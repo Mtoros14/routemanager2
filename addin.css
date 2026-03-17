@@ -17,20 +17,13 @@
 
 * { box-sizing:border-box; margin:0; padding:0; }
 
-body {
-  margin: 0;
-  padding: 0;
-  background: transparent;
-}
-
-#rm-panel {
+body, #rm-panel {
   font-family: var(--f);
   background: var(--navy);
   color: var(--t1);
   font-size: 13px;
   line-height: 1.5;
   width: 100%;
-  min-height: 100vh;
 }
 
 /* ── Header ── */
