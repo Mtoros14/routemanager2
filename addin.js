@@ -18,35 +18,29 @@
    ESTADO GLOBAL
 ───────────────────────────────────────── */
 const rmS = {
-  svc: null,
-  elt: null,                  // referencia al contenedor del panel
+  svc: null,                  // service object de Geotab
   routes: [],
   alerts: [],
-  zones: [],
-  zoneCanvasObjs: {},
-  visibleZones: new Set(),
+  zones: [],                  // Zonas cargadas de Geotab
+  zoneCanvasObjs: {},         // canvas objects de zonas { zoneId: [polygons] }
+  visibleZones: new Set(),    // IDs de zonas actualmente visibles
   waypoints: [],
   threshold: 200,
   activeRouteId: null,
+  // Canvas objects de la ruta activa
   co: {
-    planned: null,
-    real:    null,
-    stops:   [],
-    vehicle: null,
-    deviations: [],
+    planned: null,            // polyline planificada
+    real:    null,            // polyline recorrido real
+    stops:   [],              // marcadores de paradas
+    vehicle: null,            // marcador vehículo
+    deviations: [],           // marcadores de desvíos
   },
-  realPath: [],
-  osrmPath: null,
+  realPath: [],               // [ {lat,lng} ] acumulado
+  osrmPath: null,             // path de OSRM para detección de desvíos
   deviating: false,
   devStart: null,
-  eventHandler: null,
+  eventHandler: null,         // referencia para poder detachear
 };
-
-// Helper: busca un elemento por ID dentro del panel (elt),
-// con fallback a document para compatibilidad
-function rmEl(id){
-  return document.getElementById(id) || (rmS.elt ? rmS.elt.querySelector('#'+id) : null);
-}
 
 /* ─────────────────────────────────────────
    PERSISTENCIA
@@ -92,7 +86,7 @@ const rmFmtT = s => { const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); retu
 ───────────────────────────────────────── */
 let rmTT;
 function rmToast(msg,type='i'){
-  const el=rmEl('rm-toast');
+  const el=document.getElementById('rm-toast');
   if(!el)return;
   el.textContent=msg; el.className=`show ${type}`;
   clearTimeout(rmTT); rmTT=setTimeout(()=>el.classList.remove('show'),4000);
@@ -101,19 +95,15 @@ function rmToast(msg,type='i'){
 /* ─────────────────────────────────────────
    TABS
 ───────────────────────────────────────── */
-function rmInitTabs(elt){
-  // Buscar en document — el innerHTML ya fue inyectado en el DOM
-  const tabsNav = document.querySelector('.rm-tabs') || elt.querySelector('.rm-tabs');
-  if(!tabsNav){ console.warn('[RM] .rm-tabs no encontrado'); return; }
-  tabsNav.addEventListener('click', e=>{
+function rmInitTabs(){
+  document.querySelector('.rm-tabs').addEventListener('click', e=>{
     const btn=e.target.closest('.tab-btn');
     if(!btn)return;
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('on'));
     btn.classList.add('on');
     const t=btn.dataset.tab;
-    const panel = document.querySelector('#tab-'+t) || elt.querySelector('#tab-'+t);
-    if(panel) panel.classList.add('on');
+    document.getElementById('tab-'+t).classList.add('on');
     if(t==='monitor') rmRenderMonitor();
     if(t==='alerts')  rmRenderAlerts();
     if(t==='reports') rmRenderReports();
@@ -124,14 +114,11 @@ function rmInitTabs(elt){
 /* ─────────────────────────────────────────
    CHIPS
 ───────────────────────────────────────── */
-function rmInitChips(elt){
-  const root = elt || document;
-  const chipsEl = root.querySelector ? root.querySelector('#rm-chips') : root.getElementById('rm-chips');
-  if(!chipsEl)return;
-  chipsEl.addEventListener('click',e=>{
+function rmInitChips(){
+  document.getElementById('rm-chips').addEventListener('click',e=>{
     const c=e.target.closest('.chip');
     if(!c)return;
-    chipsEl.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
     c.classList.add('on');
     rmS.threshold=parseInt(c.dataset.val);
   });
@@ -332,9 +319,9 @@ function rmShowZone(zone, visible){
 }
 
 function rmRenderZonesList(){
-  const list=rmEl('rm-zones-list');
-  const countEl=rmEl('rm-zones-count');
-  const filter=(rmEl('rm-zone-filter')?.value||'').toLowerCase();
+  const list=document.getElementById('rm-zones-list');
+  const countEl=document.getElementById('rm-zones-count');
+  const filter=(document.getElementById('rm-zone-filter')?.value||'').toLowerCase();
   const zones=rmS.zones.filter(z=>(z.name||'').toLowerCase().includes(filter));
 
   countEl.textContent=`${zones.length} zona${zones.length!==1?'s':''}`;
@@ -393,12 +380,12 @@ async function rmCalcOSRM(waypoints){
    WAYPOINTS DEL FORMULARIO
 ───────────────────────────────────────── */
 function rmRenderWpList(){
-  const list=rmEl('rm-wp-list');
+  const list=document.getElementById('rm-wp-list');
   const wps=rmS.waypoints;
 
   if(!wps.length){
     list.innerHTML='<div class="wp-empty">Clic en el mapa para agregar paradas, o usá "+ Manual"</div>';
-    rmEl('rm-summary').style.display='none';
+    document.getElementById('rm-summary').style.display='none';
     rmDrawFormMarkers();
     return;
   }
@@ -418,10 +405,10 @@ function rmRenderWpList(){
     </div>`).join('');
 
   const totalDist=wps.slice(0,-1).reduce((s,w,i)=>s+rmHav(w.lat,w.lon,wps[i+1].lat,wps[i+1].lon),0);
-  rmEl('rm-s-stops').textContent=wps.length;
-  rmEl('rm-s-dist').textContent=rmFmtD(totalDist)+' aprox.';
-  rmEl('rm-s-dur').textContent='—';
-  rmEl('rm-summary').style.display='flex';
+  document.getElementById('rm-s-stops').textContent=wps.length;
+  document.getElementById('rm-s-dist').textContent=rmFmtD(totalDist)+' aprox.';
+  document.getElementById('rm-s-dur').textContent='—';
+  document.getElementById('rm-summary').style.display='flex';
 
   rmDrawFormMarkers();
 }
@@ -470,34 +457,108 @@ window.rmDelWp =(i)=>  { rmS.waypoints.splice(i,1); rmRenderWpList(); };
    CAPTURAR CLIC EN EL MAPA → AGREGAR PARADA
 ───────────────────────────────────────── */
 function rmSetupMapClick(){
-  rmS.svc.events.attach('click',data=>{
-    // Solo en tab Asignar, solo en el mapa (no en vehículo ni zona)
-    if(!rmEl('tab-assign')?.classList.contains('on'))return;
-    const loc=data.location||data;
-    if(!loc||loc.lat===undefined)return;
-    // Ignorar clics en entidades (vehículo, zona)
-    if(data.type&&data.type!=='map')return;
-    const name=`Parada ${rmS.waypoints.length+1}`;
-    rmS.waypoints.push({name,lat:loc.lat,lon:loc.lng||loc.lon,dwell:10});
-    rmRenderWpList();
-    rmToast(`📍 ${name} agregada`,'s');
-  });
+  const svc = rmS.svc;
+
+  // ── Método 1: service.actionList.attach (recomendado, funciona en SDK ≥5.7.2004)
+  if (svc.actionList && typeof svc.actionList.attach === 'function') {
+    svc.actionList.attach('tripClick', function(_, data) {
+      rmHandleMapClick(data);
+    });
+  }
+
+  // ── Método 2: service.canvas.bindEvent (alternativa para algunos builds)
+  //    Captura clics directamente sobre el canvas del mapa
+  if (svc.canvas && typeof svc.canvas.bindEvent === 'function') {
+    try {
+      svc.canvas.bindEvent('click', function(data) {
+        rmHandleMapClick(data);
+      });
+    } catch(_) {}
+  }
+
+  // ── Método 3: service.events.attach('click') — fallback clásico
+  if (svc.events && typeof svc.events.attach === 'function') {
+    svc.events.attach('click', function(data) {
+      rmHandleMapClick(data);
+    });
+  }
+
+  // ── Método 4: page.attach / map click listener (algunos SDK usan service.page)
+  if (svc.page && typeof svc.page.attach === 'function') {
+    try {
+      svc.page.attach('click', function(data) {
+        rmHandleMapClick(data);
+      });
+    } catch(_) {}
+  }
+
+  console.log('[RM] Map click listeners registrados');
+}
+
+/**
+ * Handler centralizado para todos los métodos de clic.
+ * Normaliza las distintas formas en que llegan las coordenadas
+ * según la versión del SDK de Geotab.
+ */
+function rmHandleMapClick(data) {
+  // Solo en tab Asignar
+  if (!document.getElementById('tab-assign')?.classList.contains('on')) return;
+
+  // Ignorar clics en entidades (vehículo, zona, etc.)
+  // data.type puede ser: 'map', 'Map', 'device', 'zone', undefined, etc.
+  const dataType = (data.type || '').toLowerCase();
+  if (dataType && dataType !== 'map' && dataType !== '') return;
+  // Si el clic fue sobre un entity/device/zone, ignorar
+  if (data.entity || data.device || data.zone) return;
+
+  // Normalizar coordenadas — distintos SDK envían las coords de formas distintas:
+  //   1) data.location = { lat, lng }
+  //   2) data.location = { x (lat), y (lng) }
+  //   3) data directamente = { lat, lng }
+  //   4) data = { x, y } (Geotab usa x=lng, y=lat en algunos contextos)
+  let lat, lon;
+
+  if (data.location) {
+    const loc = data.location;
+    lat = loc.lat !== undefined ? loc.lat : loc.y;
+    lon = loc.lng !== undefined ? loc.lng : (loc.lon !== undefined ? loc.lon : loc.x);
+  } else {
+    lat = data.lat !== undefined ? data.lat : data.y;
+    lon = data.lng !== undefined ? data.lng : (data.lon !== undefined ? data.lon : data.x);
+  }
+
+  // Validar que sean coordenadas reales
+  if (lat === undefined || lon === undefined || isNaN(lat) || isNaN(lon)) {
+    console.warn('[RM] Click sin coordenadas válidas:', data);
+    return;
+  }
+
+  // Evitar duplicados si múltiples listeners capturaron el mismo clic
+  const now = Date.now();
+  if (rmHandleMapClick._lastClick && (now - rmHandleMapClick._lastClick) < 300) return;
+  rmHandleMapClick._lastClick = now;
+
+  const name = `Parada ${rmS.waypoints.length + 1}`;
+  rmS.waypoints.push({ name, lat, lon, dwell: 10 });
+  rmRenderWpList();
+  rmToast(`📍 ${name} agregada`, 's');
+  console.log(`[RM] Parada agregada: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
 }
 
 /* ─────────────────────────────────────────
    GUARDAR RUTA
 ───────────────────────────────────────── */
 async function rmSaveRoute(){
-  const name=rmEl('rm-rname').value.trim();
-  const deviceId=rmEl('rm-device').value;
-  const deviceName=rmEl('rm-device').options[rmEl('rm-device').selectedIndex]?.text||'';
-  const driverId=rmEl('rm-driver').value;
+  const name=document.getElementById('rm-rname').value.trim();
+  const deviceId=document.getElementById('rm-device').value;
+  const deviceName=document.getElementById('rm-device').options[document.getElementById('rm-device').selectedIndex]?.text||'';
+  const driverId=document.getElementById('rm-driver').value;
 
   if(!name)         return rmToast('El nombre es obligatorio','e');
   if(!deviceId)     return rmToast('Seleccioná un vehículo','e');
   if(rmS.waypoints.length<2)return rmToast('Necesitás al menos 2 paradas','e');
 
-  const btn=rmEl('rm-btn-save');
+  const btn=document.getElementById('rm-btn-save');
   btn.disabled=true; btn.textContent='Guardando...';
 
   let osrmPath=rmS.osrmPath;
@@ -505,8 +566,8 @@ async function rmSaveRoute(){
     const r=await rmCalcOSRM(rmS.waypoints);
     osrmPath=r?r.path:rmS.waypoints.map(w=>[w.lat,w.lon]);
     if(r){
-      rmEl('rm-s-dist').textContent=rmFmtD(r.dist);
-      rmEl('rm-s-dur').textContent=rmFmtT(r.dur);
+      document.getElementById('rm-s-dist').textContent=rmFmtD(r.dist);
+      document.getElementById('rm-s-dur').textContent=rmFmtT(r.dur);
     }
   }
 
@@ -522,7 +583,7 @@ async function rmSaveRoute(){
 
   // Limpiar form
   rmS.waypoints=[]; rmS.osrmPath=null;
-  rmEl('rm-rname').value='';
+  document.getElementById('rm-rname').value='';
   rmRenderWpList();
   btn.disabled=false; btn.textContent='Activar Ruta';
 
@@ -631,8 +692,8 @@ function rmProcessPos(route,lat,lng,speed){
           // Poner polyline en rojo
           try{ rmS.co.planned?.setAttribute({strokeStyle:'#FF3D3D'}); }catch(_){}
           rmAddDeviationMarker(lat,lng);
-          const bar=rmEl('rm-dev-bar');
-          if(bar){ bar.classList.add('on'); rmEl('rm-dev-txt').textContent=`DESVIADO — ${rmFmtD(dist)} fuera de ruta`; }
+          const bar=document.getElementById('rm-dev-bar');
+          if(bar){ bar.classList.add('on'); document.getElementById('rm-dev-txt').textContent=`DESVIADO — ${rmFmtD(dist)} fuera de ruta`; }
           rmMoveVehicle(lat,lng,true);
         }
       }
@@ -644,7 +705,7 @@ function rmProcessPos(route,lat,lng,speed){
       if(alertA){ alertA.status='resolved'; alertA.resolvedAt=new Date().toISOString(); }
       rmSave();
       try{ rmS.co.planned?.setAttribute({strokeStyle:'#0075C9'}); }catch(_){}
-      const bar=rmEl('rm-dev-bar');
+      const bar=document.getElementById('rm-dev-bar');
       if(bar) bar.classList.remove('on');
       rmMoveVehicle(lat,lng,false);
       rmToast('✓ Vehículo retomó la ruta','s');
@@ -661,22 +722,22 @@ function rmUpdateDetail(route,pos){
   const comp=route.waypoints.filter(w=>w.done).length;
   const p=rmPct(route.waypoints);
   const next=route.waypoints.find(w=>!w.done);
-  const dot=rmEl('rm-track-dot');
-  const lbl=rmEl('rm-track-lbl');
-  const val=rmEl('rm-track-val');
+  const dot=document.getElementById('rm-track-dot');
+  const lbl=document.getElementById('rm-track-lbl');
+  const val=document.getElementById('rm-track-val');
   if(dot){
     if(rmS.deviating){ dot.className='dot red'; lbl.textContent='DESVIADO'; val.textContent='Fuera de ruta'; }
     else if(pos){ dot.className='dot green'; lbl.textContent='En ruta'; val.textContent=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}); }
     else{ dot.className='dot yellow'; lbl.textContent='Esperando...'; val.textContent='—'; }
   }
-  const pb=rmEl('rm-pb'); if(pb)pb.style.width=p+'%';
-  const pctEl=rmEl('rm-pct'); if(pctEl)pctEl.textContent=p+'%';
-  const stopsEl=rmEl('rm-stops'); if(stopsEl)stopsEl.textContent=`${comp}/${route.waypoints.length}`;
-  const devsEl=rmEl('rm-devs'); if(devsEl)devsEl.textContent=route.deviations.length;
-  const nextEl=rmEl('rm-next'); if(nextEl)nextEl.textContent=next?next.name.substring(0,20):'¡Completada!';
-  const spEl=rmEl('rm-speed'); if(spEl&&pos)spEl.textContent=(pos.speed||0)+' km/h';
+  const pb=document.getElementById('rm-pb'); if(pb)pb.style.width=p+'%';
+  const pctEl=document.getElementById('rm-pct'); if(pctEl)pctEl.textContent=p+'%';
+  const stopsEl=document.getElementById('rm-stops'); if(stopsEl)stopsEl.textContent=`${comp}/${route.waypoints.length}`;
+  const devsEl=document.getElementById('rm-devs'); if(devsEl)devsEl.textContent=route.deviations.length;
+  const nextEl=document.getElementById('rm-next'); if(nextEl)nextEl.textContent=next?next.name.substring(0,20):'¡Completada!';
+  const spEl=document.getElementById('rm-speed'); if(spEl&&pos)spEl.textContent=(pos.speed||0)+' km/h';
 
-  const tl=rmEl('rm-timeline');
+  const tl=document.getElementById('rm-timeline');
   if(tl)tl.innerHTML=route.waypoints.map(wp=>`
     <div class="tl-s ${wp.done?'done':'pend'}">
       <div class="tl-d"></div>
@@ -690,7 +751,7 @@ function rmUpdateDetail(route,pos){
 ───────────────────────────────────────── */
 function rmRenderMonitor(){
   const active=rmS.routes.filter(r=>r.status==='active');
-  const el=rmEl('rm-active-routes');
+  const el=document.getElementById('rm-active-routes');
   if(!active.length){
     el.innerHTML='<div class="empty"><span>📡</span>Sin rutas activas.</div>';
     return;
@@ -709,8 +770,8 @@ window.rmSelectRoute=function(routeId){
   const route=rmS.routes.find(r=>r.id===routeId);
   if(!route)return;
   rmStartTracking(route);
-  rmEl('rm-detail').style.display='flex';
-  rmEl('rm-detail-name').textContent=route.name;
+  document.getElementById('rm-detail').style.display='flex';
+  document.getElementById('rm-detail-name').textContent=route.name;
   rmUpdateDetail(route,null);
   rmRenderMonitor();
 };
@@ -720,12 +781,12 @@ window.rmSelectRoute=function(routeId){
 ───────────────────────────────────────── */
 function rmUpdateAlertBadge(){
   const n=rmS.alerts.filter(a=>a.status==='active').length;
-  const dot=rmEl('rm-alerts-dot');
+  const dot=document.getElementById('rm-alerts-dot');
   if(dot)dot.classList.toggle('vis',n>0);
 }
 
 function rmRenderAlerts(){
-  const el=rmEl('rm-alert-list');
+  const el=document.getElementById('rm-alert-list');
   if(!rmS.alerts.length){ el.innerHTML='<div class="empty"><span>🔔</span>Sin alertas.</div>'; return; }
   el.innerHTML=rmS.alerts.map(a=>`
     <div class="al-item ${a.status==='active'?'act':'res'}">
@@ -742,7 +803,7 @@ function rmRenderAlerts(){
 window.rmDismissAlert=id=>{ rmS.alerts=rmS.alerts.filter(a=>a.id!==id); rmSave(); rmUpdateAlertBadge(); rmRenderAlerts(); };
 
 function rmRenderReports(){
-  const el=rmEl('rm-reports-wrap');
+  const el=document.getElementById('rm-reports-wrap');
   if(!rmS.routes.length){ el.innerHTML='<div class="empty"><span>📋</span>Sin rutas.</div>'; return; }
   el.innerHTML=`<table class="rep-tbl"><thead><tr><th>Ruta</th><th>Estado</th><th>Paradas</th><th>Desvíos</th><th></th></tr></thead><tbody>
     ${rmS.routes.map(r=>{
@@ -768,7 +829,7 @@ window.rmDeleteRoute=id=>{
    MODAL — PARADA MANUAL
 ───────────────────────────────────────── */
 function rmOpenWpModal(){
-  const body=rmEl('rm-modal-body');
+  const body=document.getElementById('rm-modal-body');
   body.innerHTML=`
     <p class="modal-t">Agregar Parada Manual</p>
     <div class="fg" style="margin-bottom:10px">
@@ -790,15 +851,15 @@ function rmOpenWpModal(){
       <button class="btn btn-g btn-sm" onclick="rmCloseModal()">Cancelar</button>
       <button class="btn btn-p btn-sm" onclick="rmConfirmWp()">Confirmar</button>
     </div>`;
-  rmEl('rm-modal').classList.add('open');
+  document.getElementById('rm-modal').classList.add('open');
 }
 
-window.rmCloseModal=()=>rmEl('rm-modal').classList.remove('open');
+window.rmCloseModal=()=>document.getElementById('rm-modal').classList.remove('open');
 window.rmConfirmWp=()=>{
-  const name=rmEl('rm-wp-name').value.trim();
-  const lat=parseFloat(rmEl('rm-wp-lat').value);
-  const lon=parseFloat(rmEl('rm-wp-lon').value);
-  const dwell=parseInt(rmEl('rm-wp-dwell').value);
+  const name=document.getElementById('rm-wp-name').value.trim();
+  const lat=parseFloat(document.getElementById('rm-wp-lat').value);
+  const lon=parseFloat(document.getElementById('rm-wp-lon').value);
+  const dwell=parseInt(document.getElementById('rm-wp-dwell').value);
   if(!name||isNaN(lat)||isNaN(lon))return rmToast('Completá todos los campos','e');
   rmS.waypoints.push({name,lat,lon,dwell});
   rmCloseModal(); rmRenderWpList();
@@ -809,158 +870,28 @@ window.rmConfirmWp=()=>{
    HEADER STATUS
 ───────────────────────────────────────── */
 function rmSetHdr(type,txt){
-  const dot=rmEl('rm-dot');
-  const t=rmEl('rm-status-txt');
+  const dot=document.getElementById('rm-dot');
+  const t=document.getElementById('rm-status-txt');
   if(dot)dot.className='dot'+(type?' '+type:'');
   if(t)t.textContent=txt;
 }
 
 /* ─────────────────────────────────────────
    PUNTO DE ENTRADA — Map Add-in
-   Patrón correcto: solo "src" en config.json
-   El HTML se inyecta con elt.innerHTML
-   El CSS se inyecta con un <link> tag
+   geotab.addin.routemanager = (elt, service) => { ... }
+   El nombre debe coincidir exactamente con "name" en config.json
 ───────────────────────────────────────── */
-geotab.addin.routemanager2 = (elt, service) => {
-
-  // 1. Inyectar CSS del panel
-  if (!document.querySelector('link[href*="addin.css"]')) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://mtoros14.github.io/routemanager/addin.css';
-    document.head.appendChild(link);
-  }
-
-  // 2. Inyectar HTML del panel en elt (el contenedor que Geotab nos da)
-  elt.innerHTML = `
-<div id="rm-panel">
-  <header class="rm-hdr">
-    <div class="rm-logo">
-      <div class="rm-logo-icon">🗺️</div>
-      <span class="rm-logo-name">RouteManager</span>
-      <span class="rm-logo-ver">v4.0</span>
-    </div>
-    <div class="rm-hdr-status">
-      <div class="dot" id="rm-dot"></div>
-      <span id="rm-status-txt">Iniciando...</span>
-    </div>
-  </header>
-  <nav class="rm-tabs">
-    <button class="tab-btn on" data-tab="assign">✚ Asignar</button>
-    <button class="tab-btn" data-tab="zones">📐 Zonas</button>
-    <button class="tab-btn" data-tab="monitor">📡 Monitor</button>
-    <button class="tab-btn" data-tab="alerts">🔔 Alertas <span class="tab-dot" id="rm-alerts-dot"></span></button>
-    <button class="tab-btn" data-tab="reports">📋 Historial</button>
-  </nav>
-  <div class="tab-panel on" id="tab-assign">
-    <p style="font-size:15px;font-weight:700;letter-spacing:-.3px">Nueva Ruta</p>
-    <p style="font-size:11px;color:var(--t3);margin-top:-6px">Hacé clic en el mapa para agregar paradas.</p>
-    <div class="fg"><label class="fl">Nombre</label><input type="text" id="rm-rname" class="fi" placeholder="Ej: Reparto zona norte"></div>
-    <div class="f2">
-      <div class="fg"><label class="fl">Vehículo</label><select id="rm-device" class="fs"><option value="">— Seleccionar —</option></select></div>
-      <div class="fg"><label class="fl">Conductor</label><select id="rm-driver" class="fs"><option value="">— Seleccionar —</option></select></div>
-    </div>
-    <div class="fg"><label class="fl">Umbral de desvío</label>
-      <div class="chips" id="rm-chips">
-        <span class="chip" data-val="100">100 m</span>
-        <span class="chip on" data-val="200">200 m</span>
-        <span class="chip" data-val="300">300 m</span>
-        <span class="chip" data-val="500">500 m</span>
-      </div>
-    </div>
-    <div class="divider"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span class="sec-title">Paradas</span>
-      <button class="btn btn-g btn-sm" id="rm-btn-addwp">+ Manual</button>
-    </div>
-    <div id="rm-wp-list" class="wp-list"><div class="wp-empty">Clic en el mapa para agregar paradas, o usá "+ Manual"</div></div>
-    <div id="rm-summary" class="sum" style="display:none">
-      <div class="sum-i"><span class="sum-l">Paradas</span><span class="sum-v" id="rm-s-stops">—</span></div>
-      <div class="sum-i"><span class="sum-l">Distancia</span><span class="sum-v" id="rm-s-dist">—</span></div>
-      <div class="sum-i"><span class="sum-l">Duración est.</span><span class="sum-v" id="rm-s-dur">—</span></div>
-    </div>
-    <div class="frow">
-      <button class="btn btn-g btn-sm" id="rm-btn-clear">Limpiar</button>
-      <button class="btn btn-g btn-sm" id="rm-btn-calc">🗺️ Calcular ruta</button>
-      <button class="btn btn-p" id="rm-btn-save">Activar Ruta</button>
-    </div>
-  </div>
-  <div class="tab-panel" id="tab-zones">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <p style="font-size:15px;font-weight:700">Zonas Geotab</p>
-      <button class="btn btn-g btn-sm" id="rm-btn-reload-zones">↺ Recargar</button>
-    </div>
-    <p style="font-size:11px;color:var(--t3);margin-top:-6px">Zonas definidas en tu base de datos.</p>
-    <div class="fg"><label class="fl">Filtrar</label><input type="text" id="rm-zone-filter" class="fi" placeholder="Buscar zona..."></div>
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <span class="sec-title" id="rm-zones-count">— zonas</span>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-g btn-sm" id="rm-btn-zones-all">Mostrar todas</button>
-        <button class="btn btn-g btn-sm" id="rm-btn-zones-none">Ocultar todas</button>
-      </div>
-    </div>
-    <div id="rm-zones-list" class="zones-list"><div class="empty"><span>📐</span>Cargando zonas...</div></div>
-  </div>
-  <div class="tab-panel" id="tab-monitor">
-    <p style="font-size:15px;font-weight:700">Monitoreo en Vivo</p>
-    <span class="sec-title">Rutas activas</span>
-    <div id="rm-active-routes"><div class="empty"><span>📡</span>Sin rutas activas.</div></div>
-    <div id="rm-detail" style="display:none;flex-direction:column;gap:10px">
-      <div class="divider"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span class="sec-title" id="rm-detail-name">—</span>
-        <span id="rm-live-badge" style="font-size:9px;font-family:var(--mono);color:var(--green);background:rgba(0,214,143,.12);padding:2px 7px;border-radius:8px">● EN VIVO</span>
-      </div>
-      <div class="dev-bar" id="rm-dev-bar">⚠️ <span id="rm-dev-txt">DESVIADO</span></div>
-      <div class="sc"><div class="dot" id="rm-track-dot"></div><div><span class="lbl" id="rm-track-lbl">Esperando...</span><span class="val" id="rm-track-val">—</span></div></div>
-      <div class="pb-wrap">
-        <div class="pb-h"><span>Completación</span><span id="rm-pct" style="font-family:var(--mono);font-weight:700">0%</span></div>
-        <div class="pb"><div class="pb-fill" id="rm-pb" style="width:0%"></div></div>
-      </div>
-      <div class="sg">
-        <div class="st"><span class="lbl">Velocidad</span><span class="val" id="rm-speed">—</span></div>
-        <div class="st"><span class="lbl">Paradas</span><span class="val" id="rm-stops">0/0</span></div>
-        <div class="st"><span class="lbl">Desvíos</span><span class="val" id="rm-devs">0</span></div>
-        <div class="st"><span class="lbl">Próxima parada</span><span class="val" id="rm-next" style="font-size:10px;line-height:1.3">—</span></div>
-      </div>
-      <span class="sec-title">Estado de paradas</span>
-      <div id="rm-timeline" class="tl"></div>
-      <button class="btn btn-d btn-sm btn-full" id="rm-btn-stop">⏹ Detener seguimiento</button>
-    </div>
-  </div>
-  <div class="tab-panel" id="tab-alerts">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <p style="font-size:15px;font-weight:700">Alertas</p>
-      <button class="btn btn-g btn-sm" id="rm-btn-clear-alerts">Limpiar</button>
-    </div>
-    <div id="rm-alert-list" class="al-list"><div class="empty"><span>🔔</span>Sin alertas.</div></div>
-  </div>
-  <div class="tab-panel" id="tab-reports">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <p style="font-size:15px;font-weight:700">Historial</p>
-      <button class="btn btn-g btn-sm" id="rm-btn-export">↓ CSV</button>
-    </div>
-    <div id="rm-reports-wrap"><div class="empty"><span>📋</span>Sin rutas registradas.</div></div>
-  </div>
-  <div class="rm-modal" id="rm-modal"><div class="modal-sh"><div id="rm-modal-body"></div></div></div>
-  <div id="rm-toast"></div>
-</div>`;
-
-  // 3. Inicializar lógica — setTimeout(0) da un tick al browser
-  //    para procesar el innerHTML antes de buscar elementos
+geotab.addin.routemanager = (elt, service) => {
   rmS.svc = service;
-  rmS.elt = elt;
   rmLoad();
-
-  setTimeout(() => {
-    rmInitTabs(elt);
-    rmInitChips(elt);
-    rmSetupMapClick();
-    rmUpdateAlertBadge();
+  rmInitTabs();
+  rmInitChips();
+  rmSetupMapClick();
+  rmUpdateAlertBadge();
 
   // Cargar vehículos
   service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
-    const sel=rmEl('rm-device');
+    const sel=document.getElementById('rm-device');
     (devices||[]).forEach(d=>{
       const o=document.createElement('option');
       o.value=d.id; o.textContent=d.name; sel.appendChild(o);
@@ -969,7 +900,7 @@ geotab.addin.routemanager2 = (elt, service) => {
 
   // Cargar conductores
   service.api.call('Get',{typeName:'User',resultsLimit:500}).then(users=>{
-    const sel=rmEl('rm-driver');
+    const sel=document.getElementById('rm-driver');
     (users||[]).forEach(u=>{
       const o=document.createElement('option');
       o.value=u.id; o.textContent=u.name||`${u.firstName||''} ${u.lastName||''}`.trim(); sel.appendChild(o);
@@ -980,16 +911,16 @@ geotab.addin.routemanager2 = (elt, service) => {
   rmLoadZones();
 
   // Botones del form
-  rmEl('rm-btn-addwp').onclick=rmOpenWpModal;
-  rmEl('rm-btn-clear').onclick=()=>{
+  document.getElementById('rm-btn-addwp').onclick=rmOpenWpModal;
+  document.getElementById('rm-btn-clear').onclick=()=>{
     rmS.waypoints=[]; rmS.osrmPath=null;
-    rmEl('rm-rname').value='';
+    document.getElementById('rm-rname').value='';
     rmRenderWpList();
     if(rmS.co.planned){ try{rmS.co.planned.remove();}catch(_){} rmS.co.planned=null; }
   };
-  rmEl('rm-btn-calc').onclick=async()=>{
+  document.getElementById('rm-btn-calc').onclick=async()=>{
     if(rmS.waypoints.length<2)return rmToast('Necesitás al menos 2 paradas','e');
-    const btn=rmEl('rm-btn-calc');
+    const btn=document.getElementById('rm-btn-calc');
     btn.disabled=true; btn.textContent='Calculando...';
     try{
       const r=await rmCalcOSRM(rmS.waypoints);
@@ -1002,9 +933,9 @@ geotab.addin.routemanager2 = (elt, service) => {
       const pl=canvas.path(segs,1);
       pl.setAttribute({strokeStyle:'#0075C9',lineWidth:4,opacity:.8});
       rmS.co.planned=pl;
-      rmEl('rm-s-dist').textContent=rmFmtD(r.dist);
-      rmEl('rm-s-dur').textContent=rmFmtT(r.dur);
-      rmEl('rm-summary').style.display='flex';
+      document.getElementById('rm-s-dist').textContent=rmFmtD(r.dist);
+      document.getElementById('rm-s-dur').textContent=rmFmtT(r.dur);
+      document.getElementById('rm-summary').style.display='flex';
       rmToast(`✓ Ruta calculada: ${rmFmtD(r.dist)} · ${rmFmtT(r.dur)}`,'s');
     }catch(e){
       rmToast('Error calculando ruta','e');
@@ -1012,16 +943,16 @@ geotab.addin.routemanager2 = (elt, service) => {
       btn.disabled=false; btn.textContent='🗺️ Calcular ruta';
     }
   };
-  rmEl('rm-btn-save').onclick=rmSaveRoute;
-  rmEl('rm-btn-stop').onclick=()=>{
+  document.getElementById('rm-btn-save').onclick=rmSaveRoute;
+  document.getElementById('rm-btn-stop').onclick=()=>{
     rmStopTracking(); rmS.activeRouteId=null;
-    rmEl('rm-detail').style.display='none';
+    document.getElementById('rm-detail').style.display='none';
     rmRenderMonitor(); rmToast('Seguimiento detenido','i');
   };
-  rmEl('rm-btn-clear-alerts').onclick=()=>{
+  document.getElementById('rm-btn-clear-alerts').onclick=()=>{
     rmS.alerts=[]; rmSave(); rmUpdateAlertBadge(); rmRenderAlerts(); rmToast('Alertas limpiadas','i');
   };
-  rmEl('rm-btn-export').onclick=()=>{
+  document.getElementById('rm-btn-export').onclick=()=>{
     if(!rmS.routes.length)return rmToast('Sin rutas','e');
     const hdr=['ID','Nombre','Estado','Creada','Paradas','Completadas','Desvíos'];
     const rows=rmS.routes.map(r=>[r.id,r.name,r.status,new Date(r.createdAt).toLocaleDateString('es-AR'),r.waypoints.length,r.waypoints.filter(w=>w.done).length,(r.deviations||[]).length]);
@@ -1029,14 +960,13 @@ geotab.addin.routemanager2 = (elt, service) => {
     const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv'})),download:`rutas_${new Date().toISOString().split('T')[0]}.csv`});
     a.click(); rmToast('CSV exportado ✓','s');
   };
-  rmEl('rm-modal').addEventListener('click',e=>{ if(e.target.id==='rm-modal')rmCloseModal(); });
+  document.getElementById('rm-modal').addEventListener('click',e=>{ if(e.target.id==='rm-modal')rmCloseModal(); });
 
   // Zonas controls
-  rmEl('rm-btn-reload-zones').onclick=rmLoadZones;
-  rmEl('rm-btn-zones-all').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,true)); rmRenderZonesList(); };
-  rmEl('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
-  rmEl('rm-zone-filter').addEventListener('input',rmRenderZonesList);
+  document.getElementById('rm-btn-reload-zones').onclick=rmLoadZones;
+  document.getElementById('rm-btn-zones-all').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,true)); rmRenderZonesList(); };
+  document.getElementById('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
+  document.getElementById('rm-zone-filter').addEventListener('input',rmRenderZonesList);
 
   rmSetHdr('green','Conectado');
-  }, 0); // fin setTimeout
 };
