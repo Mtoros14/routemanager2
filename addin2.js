@@ -882,6 +882,20 @@ function rmSetHdr(type,txt){
    DOM del url ya está disponible al momento de la llamada.
    La inicialización se delega a una función async.
 ───────────────────────────────────────── */
+function rmWaitForDom(fn, timeout=5000) {
+  const start = Date.now();
+  const check = () => {
+    if (document.querySelector('.rm-tabs')) {
+      fn();
+    } else if (Date.now() - start < timeout) {
+      setTimeout(check, 30);
+    } else {
+      console.error('[RM] Timeout: DOM no disponible');
+    }
+  };
+  check();
+}
+
 async function rmInitialize(service) {
   rmS.svc = service;
   rmLoad();
@@ -967,5 +981,5 @@ async function rmInitialize(service) {
 
 geotab.addin.routemanager2 = (elt, service) => {
   window.rmService = service;
-  rmInitialize(service);
+  rmWaitForDom(() => rmInitialize(service));
 };
