@@ -878,14 +878,11 @@ function rmSetHdr(type,txt){
 
 /* ─────────────────────────────────────────
    PUNTO DE ENTRADA — Map Add-in
-   Formato correcto para mapScript con src+style:
-   geotab.addin.X = (elt, service) => { ... }
-   elt ya tiene el HTML inyectado desde addin.html (url)
-   cuando se usa url en lugar de src+style.
-   Con src+style el add-in function es llamado directamente,
-   NO usa initialize/focus/blur.
+   Patrón oficial Geotab: arrow function directa,
+   DOM del url ya está disponible al momento de la llamada.
+   La inicialización se delega a una función async.
 ───────────────────────────────────────── */
-geotab.addin.routemanager2 = (elt, service) => {
+async function rmInitialize(service) {
   rmS.svc = service;
   rmLoad();
   rmInitTabs();
@@ -893,7 +890,6 @@ geotab.addin.routemanager2 = (elt, service) => {
   rmSetupMapClick();
   rmUpdateAlertBadge();
 
-  // Cargar vehículos
   service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
     const sel=document.getElementById('rm-device');
     (devices||[]).forEach(d=>{
@@ -902,7 +898,6 @@ geotab.addin.routemanager2 = (elt, service) => {
     });
   }).catch(e=>console.warn('[RM] devices:',e));
 
-  // Cargar conductores
   service.api.call('Get',{typeName:'User',resultsLimit:500}).then(users=>{
     const sel=document.getElementById('rm-driver');
     (users||[]).forEach(u=>{
@@ -911,10 +906,8 @@ geotab.addin.routemanager2 = (elt, service) => {
     });
   }).catch(e=>console.warn('[RM] users:',e));
 
-  // Cargar zonas
   rmLoadZones();
 
-  // Botones del form
   document.getElementById('rm-btn-addwp').onclick=rmOpenWpModal;
   document.getElementById('rm-btn-clear').onclick=()=>{
     rmS.waypoints=[]; rmS.osrmPath=null;
@@ -964,12 +957,15 @@ geotab.addin.routemanager2 = (elt, service) => {
     a.click(); rmToast('CSV exportado ✓','s');
   };
   document.getElementById('rm-modal').addEventListener('click',e=>{ if(e.target.id==='rm-modal')rmCloseModal(); });
-
-  // Zonas controls
   document.getElementById('rm-btn-reload-zones').onclick=rmLoadZones;
   document.getElementById('rm-btn-zones-all').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,true)); rmRenderZonesList(); };
   document.getElementById('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
   document.getElementById('rm-zone-filter').addEventListener('input',rmRenderZonesList);
 
   rmSetHdr('green','Conectado');
+}
+
+geotab.addin.routemanager2 = (elt, service) => {
+  window.rmService = service;
+  rmInitialize(service);
 };
