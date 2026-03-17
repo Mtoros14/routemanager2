@@ -886,12 +886,16 @@ function rmSetHdr(type,txt){
 geotab.addin.routemanager2 = (elt, service) => {
   return {
     initialize(freshApi, freshState, callback) {
-      rmS.svc = service;
-      rmLoad();
-      rmInitTabs();
-      rmInitChips();
-      rmSetupMapClick();
-      rmUpdateAlertBadge();
+      console.log('[RM] initialize called');
+      try {
+        rmS.svc = service;
+        rmLoad();
+        console.log('[RM] rmLoad OK');
+        rmInitTabs();
+        console.log('[RM] rmInitTabs OK');
+        rmInitChips();
+        rmSetupMapClick();
+        rmUpdateAlertBadge();
 
       // Cargar vehículos
       service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
@@ -972,12 +976,12 @@ geotab.addin.routemanager2 = (elt, service) => {
       document.getElementById('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
       document.getElementById('rm-zone-filter').addEventListener('input',rmRenderZonesList);
 
-      rmSetHdr('green','Conectado');
-      callback();
+        rmSetHdr('green','Conectado');
+        console.log('[RM] initialize complete');
+        callback();
       } catch(err) {
-        console.error('[RM] initialize error:', err);
+        console.error('[RM] INIT ERROR:', err.message, err.stack);
         rmSetHdr('red', 'Error: ' + err.message);
-        // Llamar callback igual para que Geotab no quede colgado
         try { callback(); } catch(_) {}
       }
     },
