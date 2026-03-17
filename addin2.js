@@ -457,92 +457,18 @@ window.rmDelWp =(i)=>  { rmS.waypoints.splice(i,1); rmRenderWpList(); };
    CAPTURAR CLIC EN EL MAPA → AGREGAR PARADA
 ───────────────────────────────────────── */
 function rmSetupMapClick(){
-  const svc = rmS.svc;
-
-  // ── Método 1: service.actionList.attach (recomendado, funciona en SDK ≥5.7.2004)
-  if (svc.actionList && typeof svc.actionList.attach === 'function') {
-    svc.actionList.attach('tripClick', function(_, data) {
-      rmHandleMapClick(data);
-    });
-  }
-
-  // ── Método 2: service.canvas.bindEvent (alternativa para algunos builds)
-  //    Captura clics directamente sobre el canvas del mapa
-  if (svc.canvas && typeof svc.canvas.bindEvent === 'function') {
-    try {
-      svc.canvas.bindEvent('click', function(data) {
-        rmHandleMapClick(data);
-      });
-    } catch(_) {}
-  }
-
-  // ── Método 3: service.events.attach('click') — fallback clásico
-  if (svc.events && typeof svc.events.attach === 'function') {
-    svc.events.attach('click', function(data) {
-      rmHandleMapClick(data);
-    });
-  }
-
-  // ── Método 4: page.attach / map click listener (algunos SDK usan service.page)
-  if (svc.page && typeof svc.page.attach === 'function') {
-    try {
-      svc.page.attach('click', function(data) {
-        rmHandleMapClick(data);
-      });
-    } catch(_) {}
-  }
-
-  console.log('[RM] Map click listeners registrados');
-}
-
-/**
- * Handler centralizado para todos los métodos de clic.
- * Normaliza las distintas formas en que llegan las coordenadas
- * según la versión del SDK de Geotab.
- */
-function rmHandleMapClick(data) {
-  // Solo en tab Asignar
-  if (!document.getElementById('tab-assign')?.classList.contains('on')) return;
-
-  // Ignorar clics en entidades (vehículo, zona, etc.)
-  // data.type puede ser: 'map', 'Map', 'device', 'zone', undefined, etc.
-  const dataType = (data.type || '').toLowerCase();
-  if (dataType && dataType !== 'map' && dataType !== '') return;
-  // Si el clic fue sobre un entity/device/zone, ignorar
-  if (data.entity || data.device || data.zone) return;
-
-  // Normalizar coordenadas — distintos SDK envían las coords de formas distintas:
-  //   1) data.location = { lat, lng }
-  //   2) data.location = { x (lat), y (lng) }
-  //   3) data directamente = { lat, lng }
-  //   4) data = { x, y } (Geotab usa x=lng, y=lat en algunos contextos)
-  let lat, lon;
-
-  if (data.location) {
-    const loc = data.location;
-    lat = loc.lat !== undefined ? loc.lat : loc.y;
-    lon = loc.lng !== undefined ? loc.lng : (loc.lon !== undefined ? loc.lon : loc.x);
-  } else {
-    lat = data.lat !== undefined ? data.lat : data.y;
-    lon = data.lng !== undefined ? data.lng : (data.lon !== undefined ? data.lon : data.x);
-  }
-
-  // Validar que sean coordenadas reales
-  if (lat === undefined || lon === undefined || isNaN(lat) || isNaN(lon)) {
-    console.warn('[RM] Click sin coordenadas válidas:', data);
-    return;
-  }
-
-  // Evitar duplicados si múltiples listeners capturaron el mismo clic
-  const now = Date.now();
-  if (rmHandleMapClick._lastClick && (now - rmHandleMapClick._lastClick) < 300) return;
-  rmHandleMapClick._lastClick = now;
-
-  const name = `Parada ${rmS.waypoints.length + 1}`;
-  rmS.waypoints.push({ name, lat, lon, dwell: 10 });
-  rmRenderWpList();
-  rmToast(`📍 ${name} agregada`, 's');
-  console.log(`[RM] Parada agregada: ${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+  rmS.svc.events.attach('click',data=>{
+    // Solo en tab Asignar, solo en el mapa (no en vehículo ni zona)
+    if(!document.getElementById('tab-assign')?.classList.contains('on'))return;
+    const loc=data.location||data;
+    if(!loc||loc.lat===undefined)return;
+    // Ignorar clics en entidades (vehículo, zona)
+    if(data.type&&data.type!=='map')return;
+    const name=`Parada ${rmS.waypoints.length+1}`;
+    rmS.waypoints.push({name,lat:loc.lat,lon:loc.lng||loc.lon,dwell:10});
+    rmRenderWpList();
+    rmToast(`📍 ${name} agregada`,'s');
+  });
 }
 
 /* ─────────────────────────────────────────
@@ -878,25 +804,10 @@ function rmSetHdr(type,txt){
 
 /* ─────────────────────────────────────────
    PUNTO DE ENTRADA — Map Add-in
-   Patrón oficial Geotab: arrow function directa,
-   DOM del url ya está disponible al momento de la llamada.
-   La inicialización se delega a una función async.
+   geotab.addin.routemanager = (elt, service) => { ... }
+   El nombre debe coincidir exactamente con "name" en config.json
 ───────────────────────────────────────── */
-function rmWaitForDom(fn, timeout=5000) {
-  const start = Date.now();
-  const check = () => {
-    if (document.querySelector('.rm-tabs')) {
-      fn();
-    } else if (Date.now() - start < timeout) {
-      setTimeout(check, 30);
-    } else {
-      console.error('[RM] Timeout: DOM no disponible');
-    }
-  };
-  check();
-}
-
-async function rmInitialize(service) {
+geotab.addin.routemanager = (elt, service) => {
   rmS.svc = service;
   rmLoad();
   rmInitTabs();
@@ -904,6 +815,7 @@ async function rmInitialize(service) {
   rmSetupMapClick();
   rmUpdateAlertBadge();
 
+  // Cargar vehículos
   service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
     const sel=document.getElementById('rm-device');
     (devices||[]).forEach(d=>{
@@ -912,6 +824,7 @@ async function rmInitialize(service) {
     });
   }).catch(e=>console.warn('[RM] devices:',e));
 
+  // Cargar conductores
   service.api.call('Get',{typeName:'User',resultsLimit:500}).then(users=>{
     const sel=document.getElementById('rm-driver');
     (users||[]).forEach(u=>{
@@ -920,8 +833,10 @@ async function rmInitialize(service) {
     });
   }).catch(e=>console.warn('[RM] users:',e));
 
+  // Cargar zonas
   rmLoadZones();
 
+  // Botones del form
   document.getElementById('rm-btn-addwp').onclick=rmOpenWpModal;
   document.getElementById('rm-btn-clear').onclick=()=>{
     rmS.waypoints=[]; rmS.osrmPath=null;
@@ -937,6 +852,7 @@ async function rmInitialize(service) {
       const r=await rmCalcOSRM(rmS.waypoints);
       if(!r)throw new Error('Sin resultado');
       rmS.osrmPath=r.path;
+      // Dibujar polyline OSRM en el mapa
       if(rmS.co.planned){ try{rmS.co.planned.remove();}catch(_){} rmS.co.planned=null; }
       const canvas=service.canvas;
       const segs=r.path.map((p,i)=>({point:{lat:p[0],lng:p[1]},...(i===0&&{moveTo:true})}));
@@ -971,15 +887,12 @@ async function rmInitialize(service) {
     a.click(); rmToast('CSV exportado ✓','s');
   };
   document.getElementById('rm-modal').addEventListener('click',e=>{ if(e.target.id==='rm-modal')rmCloseModal(); });
+
+  // Zonas controls
   document.getElementById('rm-btn-reload-zones').onclick=rmLoadZones;
   document.getElementById('rm-btn-zones-all').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,true)); rmRenderZonesList(); };
   document.getElementById('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
   document.getElementById('rm-zone-filter').addEventListener('input',rmRenderZonesList);
 
   rmSetHdr('green','Conectado');
-}
-
-geotab.addin.routemanager2 = (elt, service) => {
-  window.rmService = service;
-  rmWaitForDom(() => rmInitialize(service));
 };
