@@ -804,8 +804,7 @@ function rmSetHdr(type,txt){
 
 /* ─────────────────────────────────────────
    PUNTO DE ENTRADA — Map Add-in
-   geotab.addin.routemanager = (elt, service) => { ... }
-   El nombre debe coincidir exactamente con "name" en config.json
+   Nombre debe coincidir EXACTAMENTE con "name" en config.json
 ───────────────────────────────────────── */
 geotab.addin.routemanager2 = (elt, service) => {
   rmS.svc = service;
