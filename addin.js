@@ -881,7 +881,7 @@ function rmSetHdr(type,txt){
    geotab.addin.routemanager = (elt, service) => { ... }
    El nombre debe coincidir exactamente con "name" en config.json
 ───────────────────────────────────────── */
-geotab.addin.routemanager = (elt, service) => {
+geotab.addin.routemanager2 = (elt, service) => {
   rmS.svc = service;
   rmLoad();
   rmInitTabs();
