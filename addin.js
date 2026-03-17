@@ -45,8 +45,7 @@ const rmS = {
 // Helper: busca un elemento por ID dentro del panel (elt),
 // con fallback a document para compatibilidad
 function rmEl(id){
-  if(rmS.elt) return rmS.elt.querySelector('#'+id);
-  return rmEl(id);
+  return document.getElementById(id) || (rmS.elt ? rmS.elt.querySelector('#'+id) : null);
 }
 
 /* ─────────────────────────────────────────
@@ -103,17 +102,18 @@ function rmToast(msg,type='i'){
    TABS
 ───────────────────────────────────────── */
 function rmInitTabs(elt){
-  const root = elt || document;
-  root.querySelector('.rm-tabs').addEventListener('click', e=>{
+  // Buscar en document — el innerHTML ya fue inyectado en el DOM
+  const tabsNav = document.querySelector('.rm-tabs') || elt.querySelector('.rm-tabs');
+  if(!tabsNav){ console.warn('[RM] .rm-tabs no encontrado'); return; }
+  tabsNav.addEventListener('click', e=>{
     const btn=e.target.closest('.tab-btn');
     if(!btn)return;
-    root.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
-    root.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('on'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('on'));
     btn.classList.add('on');
     const t=btn.dataset.tab;
-    root.getElementById
-      ? root.getElementById('tab-'+t)?.classList.add('on')
-      : root.querySelector('#tab-'+t)?.classList.add('on');
+    const panel = document.querySelector('#tab-'+t) || elt.querySelector('#tab-'+t);
+    if(panel) panel.classList.add('on');
     if(t==='monitor') rmRenderMonitor();
     if(t==='alerts')  rmRenderAlerts();
     if(t==='reports') rmRenderReports();
@@ -946,14 +946,17 @@ geotab.addin.routemanager2 = (elt, service) => {
   <div id="rm-toast"></div>
 </div>`;
 
-  // 3. Inicializar lógica (buscar elementos dentro de elt, no en document)
+  // 3. Inicializar lógica — setTimeout(0) da un tick al browser
+  //    para procesar el innerHTML antes de buscar elementos
   rmS.svc = service;
-  rmS.elt = elt;  // guardar referencia al contenedor
+  rmS.elt = elt;
   rmLoad();
-  rmInitTabs(elt);
-  rmInitChips(elt);
-  rmSetupMapClick();
-  rmUpdateAlertBadge();
+
+  setTimeout(() => {
+    rmInitTabs(elt);
+    rmInitChips(elt);
+    rmSetupMapClick();
+    rmUpdateAlertBadge();
 
   // Cargar vehículos
   service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
@@ -1035,4 +1038,5 @@ geotab.addin.routemanager2 = (elt, service) => {
   rmEl('rm-zone-filter').addEventListener('input',rmRenderZonesList);
 
   rmSetHdr('green','Conectado');
+  }, 0); // fin setTimeout
 };
