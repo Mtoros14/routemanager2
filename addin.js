@@ -974,6 +974,12 @@ geotab.addin.routemanager2 = (elt, service) => {
 
       rmSetHdr('green','Conectado');
       callback();
+      } catch(err) {
+        console.error('[RM] initialize error:', err);
+        rmSetHdr('red', 'Error: ' + err.message);
+        // Llamar callback igual para que Geotab no quede colgado
+        try { callback(); } catch(_) {}
+      }
     },
 
     focus(freshApi, freshState) {
