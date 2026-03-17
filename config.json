@@ -8,8 +8,8 @@
       "title": "RouteManager",
       "noView": false,
       "mapScript": {
-        "url": "https://mtoros14.github.io/routemanager2/index.html",
-        "src":  "https://mtoros14.github.io/routemanager2/addin.js",
+        "url": "https://mtoros14.github.io/routemanager2/addin.html",
+        "src":  "https://mtoros14.github.io/routemanager2/addin2.js",
         "style":"https://mtoros14.github.io/routemanager2/addin.css"
       }
     }
