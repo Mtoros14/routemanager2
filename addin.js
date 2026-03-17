@@ -878,95 +878,111 @@ function rmSetHdr(type,txt){
 
 /* ─────────────────────────────────────────
    PUNTO DE ENTRADA — Map Add-in
-   geotab.addin.routemanager = (elt, service) => { ... }
+   Usa el ciclo de vida initialize / focus / blur
+   para garantizar que el DOM del panel esté listo
+   antes de llamar a rmInitTabs() y demás helpers.
    El nombre debe coincidir exactamente con "name" en config.json
 ───────────────────────────────────────── */
 geotab.addin.routemanager2 = (elt, service) => {
-  rmS.svc = service;
-  rmLoad();
-  rmInitTabs();
-  rmInitChips();
-  rmSetupMapClick();
-  rmUpdateAlertBadge();
+  return {
+    initialize(freshApi, freshState, callback) {
+      rmS.svc = service;
+      rmLoad();
+      rmInitTabs();
+      rmInitChips();
+      rmSetupMapClick();
+      rmUpdateAlertBadge();
 
-  // Cargar vehículos
-  service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
-    const sel=document.getElementById('rm-device');
-    (devices||[]).forEach(d=>{
-      const o=document.createElement('option');
-      o.value=d.id; o.textContent=d.name; sel.appendChild(o);
-    });
-  }).catch(e=>console.warn('[RM] devices:',e));
+      // Cargar vehículos
+      service.api.call('Get',{typeName:'Device',resultsLimit:500}).then(devices=>{
+        const sel=document.getElementById('rm-device');
+        (devices||[]).forEach(d=>{
+          const o=document.createElement('option');
+          o.value=d.id; o.textContent=d.name; sel.appendChild(o);
+        });
+      }).catch(e=>console.warn('[RM] devices:',e));
 
-  // Cargar conductores
-  service.api.call('Get',{typeName:'User',resultsLimit:500}).then(users=>{
-    const sel=document.getElementById('rm-driver');
-    (users||[]).forEach(u=>{
-      const o=document.createElement('option');
-      o.value=u.id; o.textContent=u.name||`${u.firstName||''} ${u.lastName||''}`.trim(); sel.appendChild(o);
-    });
-  }).catch(e=>console.warn('[RM] users:',e));
+      // Cargar conductores
+      service.api.call('Get',{typeName:'User',resultsLimit:500}).then(users=>{
+        const sel=document.getElementById('rm-driver');
+        (users||[]).forEach(u=>{
+          const o=document.createElement('option');
+          o.value=u.id; o.textContent=u.name||`${u.firstName||''} ${u.lastName||''}`.trim(); sel.appendChild(o);
+        });
+      }).catch(e=>console.warn('[RM] users:',e));
 
-  // Cargar zonas
-  rmLoadZones();
+      // Cargar zonas
+      rmLoadZones();
 
-  // Botones del form
-  document.getElementById('rm-btn-addwp').onclick=rmOpenWpModal;
-  document.getElementById('rm-btn-clear').onclick=()=>{
-    rmS.waypoints=[]; rmS.osrmPath=null;
-    document.getElementById('rm-rname').value='';
-    rmRenderWpList();
-    if(rmS.co.planned){ try{rmS.co.planned.remove();}catch(_){} rmS.co.planned=null; }
-  };
-  document.getElementById('rm-btn-calc').onclick=async()=>{
-    if(rmS.waypoints.length<2)return rmToast('Necesitás al menos 2 paradas','e');
-    const btn=document.getElementById('rm-btn-calc');
-    btn.disabled=true; btn.textContent='Calculando...';
-    try{
-      const r=await rmCalcOSRM(rmS.waypoints);
-      if(!r)throw new Error('Sin resultado');
-      rmS.osrmPath=r.path;
-      // Dibujar polyline OSRM en el mapa
-      if(rmS.co.planned){ try{rmS.co.planned.remove();}catch(_){} rmS.co.planned=null; }
-      const canvas=service.canvas;
-      const segs=r.path.map((p,i)=>({point:{lat:p[0],lng:p[1]},...(i===0&&{moveTo:true})}));
-      const pl=canvas.path(segs,1);
-      pl.setAttribute({strokeStyle:'#0075C9',lineWidth:4,opacity:.8});
-      rmS.co.planned=pl;
-      document.getElementById('rm-s-dist').textContent=rmFmtD(r.dist);
-      document.getElementById('rm-s-dur').textContent=rmFmtT(r.dur);
-      document.getElementById('rm-summary').style.display='flex';
-      rmToast(`✓ Ruta calculada: ${rmFmtD(r.dist)} · ${rmFmtT(r.dur)}`,'s');
-    }catch(e){
-      rmToast('Error calculando ruta','e');
-    } finally {
-      btn.disabled=false; btn.textContent='🗺️ Calcular ruta';
+      // Botones del form
+      document.getElementById('rm-btn-addwp').onclick=rmOpenWpModal;
+      document.getElementById('rm-btn-clear').onclick=()=>{
+        rmS.waypoints=[]; rmS.osrmPath=null;
+        document.getElementById('rm-rname').value='';
+        rmRenderWpList();
+        if(rmS.co.planned){ try{rmS.co.planned.remove();}catch(_){} rmS.co.planned=null; }
+      };
+      document.getElementById('rm-btn-calc').onclick=async()=>{
+        if(rmS.waypoints.length<2)return rmToast('Necesitás al menos 2 paradas','e');
+        const btn=document.getElementById('rm-btn-calc');
+        btn.disabled=true; btn.textContent='Calculando...';
+        try{
+          const r=await rmCalcOSRM(rmS.waypoints);
+          if(!r)throw new Error('Sin resultado');
+          rmS.osrmPath=r.path;
+          // Dibujar polyline OSRM en el mapa
+          if(rmS.co.planned){ try{rmS.co.planned.remove();}catch(_){} rmS.co.planned=null; }
+          const canvas=service.canvas;
+          const segs=r.path.map((p,i)=>({point:{lat:p[0],lng:p[1]},...(i===0&&{moveTo:true})}));
+          const pl=canvas.path(segs,1);
+          pl.setAttribute({strokeStyle:'#0075C9',lineWidth:4,opacity:.8});
+          rmS.co.planned=pl;
+          document.getElementById('rm-s-dist').textContent=rmFmtD(r.dist);
+          document.getElementById('rm-s-dur').textContent=rmFmtT(r.dur);
+          document.getElementById('rm-summary').style.display='flex';
+          rmToast(`✓ Ruta calculada: ${rmFmtD(r.dist)} · ${rmFmtT(r.dur)}`,'s');
+        }catch(e){
+          rmToast('Error calculando ruta','e');
+        } finally {
+          btn.disabled=false; btn.textContent='🗺️ Calcular ruta';
+        }
+      };
+      document.getElementById('rm-btn-save').onclick=rmSaveRoute;
+      document.getElementById('rm-btn-stop').onclick=()=>{
+        rmStopTracking(); rmS.activeRouteId=null;
+        document.getElementById('rm-detail').style.display='none';
+        rmRenderMonitor(); rmToast('Seguimiento detenido','i');
+      };
+      document.getElementById('rm-btn-clear-alerts').onclick=()=>{
+        rmS.alerts=[]; rmSave(); rmUpdateAlertBadge(); rmRenderAlerts(); rmToast('Alertas limpiadas','i');
+      };
+      document.getElementById('rm-btn-export').onclick=()=>{
+        if(!rmS.routes.length)return rmToast('Sin rutas','e');
+        const hdr=['ID','Nombre','Estado','Creada','Paradas','Completadas','Desvíos'];
+        const rows=rmS.routes.map(r=>[r.id,r.name,r.status,new Date(r.createdAt).toLocaleDateString('es-AR'),r.waypoints.length,r.waypoints.filter(w=>w.done).length,(r.deviations||[]).length]);
+        const csv=[hdr,...rows].map(r=>r.join(',')).join('\n');
+        const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv'})),download:`rutas_${new Date().toISOString().split('T')[0]}.csv`});
+        a.click(); rmToast('CSV exportado ✓','s');
+      };
+      document.getElementById('rm-modal').addEventListener('click',e=>{ if(e.target.id==='rm-modal')rmCloseModal(); });
+
+      // Zonas controls
+      document.getElementById('rm-btn-reload-zones').onclick=rmLoadZones;
+      document.getElementById('rm-btn-zones-all').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,true)); rmRenderZonesList(); };
+      document.getElementById('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
+      document.getElementById('rm-zone-filter').addEventListener('input',rmRenderZonesList);
+
+      rmSetHdr('green','Conectado');
+      callback();
+    },
+
+    focus(freshApi, freshState) {
+      // Se llama cada vez que el usuario abre el panel del add-in.
+      // Podés refrescar datos aquí si es necesario.
+    },
+
+    blur() {
+      // Se llama cuando el usuario sale del panel del add-in.
     }
   };
-  document.getElementById('rm-btn-save').onclick=rmSaveRoute;
-  document.getElementById('rm-btn-stop').onclick=()=>{
-    rmStopTracking(); rmS.activeRouteId=null;
-    document.getElementById('rm-detail').style.display='none';
-    rmRenderMonitor(); rmToast('Seguimiento detenido','i');
-  };
-  document.getElementById('rm-btn-clear-alerts').onclick=()=>{
-    rmS.alerts=[]; rmSave(); rmUpdateAlertBadge(); rmRenderAlerts(); rmToast('Alertas limpiadas','i');
-  };
-  document.getElementById('rm-btn-export').onclick=()=>{
-    if(!rmS.routes.length)return rmToast('Sin rutas','e');
-    const hdr=['ID','Nombre','Estado','Creada','Paradas','Completadas','Desvíos'];
-    const rows=rmS.routes.map(r=>[r.id,r.name,r.status,new Date(r.createdAt).toLocaleDateString('es-AR'),r.waypoints.length,r.waypoints.filter(w=>w.done).length,(r.deviations||[]).length]);
-    const csv=[hdr,...rows].map(r=>r.join(',')).join('\n');
-    const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv'})),download:`rutas_${new Date().toISOString().split('T')[0]}.csv`});
-    a.click(); rmToast('CSV exportado ✓','s');
-  };
-  document.getElementById('rm-modal').addEventListener('click',e=>{ if(e.target.id==='rm-modal')rmCloseModal(); });
-
-  // Zonas controls
-  document.getElementById('rm-btn-reload-zones').onclick=rmLoadZones;
-  document.getElementById('rm-btn-zones-all').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,true)); rmRenderZonesList(); };
-  document.getElementById('rm-btn-zones-none').onclick=()=>{ rmS.zones.forEach(z=>rmShowZone(z,false)); rmRenderZonesList(); };
-  document.getElementById('rm-zone-filter').addEventListener('input',rmRenderZonesList);
-
-  rmSetHdr('green','Conectado');
 };
