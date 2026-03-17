@@ -1,16 +1,5 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RouteManager</title>
-  <link rel="stylesheet" href="addin.css">
-</head>
-<body>
-
 <div id="rm-panel">
 
-  <!-- Header -->
   <header class="rm-hdr">
     <div class="rm-logo">
       <div class="rm-logo-icon">🗺️</div>
@@ -23,34 +12,21 @@
     </div>
   </header>
 
-  <!-- Tabs -->
   <nav class="rm-tabs">
     <button class="tab-btn on" data-tab="assign">✚ Asignar</button>
     <button class="tab-btn" data-tab="zones">📐 Zonas</button>
     <button class="tab-btn" data-tab="monitor">📡 Monitor</button>
-    <button class="tab-btn" data-tab="alerts">
-      🔔 Alertas <span class="tab-dot" id="rm-alerts-dot"></span>
-    </button>
+    <button class="tab-btn" data-tab="alerts">🔔 Alertas <span class="tab-dot" id="rm-alerts-dot"></span></button>
     <button class="tab-btn" data-tab="reports">📋 Historial</button>
   </nav>
 
-  <!-- Tab: Asignar -->
   <div class="tab-panel on" id="tab-assign">
     <p style="font-size:15px;font-weight:700;letter-spacing:-.3px">Nueva Ruta</p>
     <p style="font-size:11px;color:var(--t3);margin-top:-6px">Hacé clic en el mapa para agregar paradas.</p>
-    <div class="fg">
-      <label class="fl">Nombre</label>
-      <input type="text" id="rm-rname" class="fi" placeholder="Ej: Reparto zona norte">
-    </div>
+    <div class="fg"><label class="fl">Nombre</label><input type="text" id="rm-rname" class="fi" placeholder="Ej: Reparto zona norte"></div>
     <div class="f2">
-      <div class="fg">
-        <label class="fl">Vehículo</label>
-        <select id="rm-device" class="fs"><option value="">— Seleccionar —</option></select>
-      </div>
-      <div class="fg">
-        <label class="fl">Conductor</label>
-        <select id="rm-driver" class="fs"><option value="">— Seleccionar —</option></select>
-      </div>
+      <div class="fg"><label class="fl">Vehículo</label><select id="rm-device" class="fs"><option value="">— Seleccionar —</option></select></div>
+      <div class="fg"><label class="fl">Conductor</label><select id="rm-driver" class="fs"><option value="">— Seleccionar —</option></select></div>
     </div>
     <div class="fg">
       <label class="fl">Umbral de desvío</label>
@@ -66,9 +42,7 @@
       <span class="sec-title">Paradas</span>
       <button class="btn btn-g btn-sm" id="rm-btn-addwp">+ Manual</button>
     </div>
-    <div id="rm-wp-list" class="wp-list">
-      <div class="wp-empty">Clic en el mapa para agregar paradas, o usá "+ Manual"</div>
-    </div>
+    <div id="rm-wp-list" class="wp-list"><div class="wp-empty">Clic en el mapa para agregar paradas, o usá "+ Manual"</div></div>
     <div id="rm-summary" class="sum" style="display:none">
       <div class="sum-i"><span class="sum-l">Paradas</span><span class="sum-v" id="rm-s-stops">—</span></div>
       <div class="sum-i"><span class="sum-l">Distancia</span><span class="sum-v" id="rm-s-dist">—</span></div>
@@ -81,17 +55,13 @@
     </div>
   </div>
 
-  <!-- Tab: Zonas -->
   <div class="tab-panel" id="tab-zones">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <p style="font-size:15px;font-weight:700">Zonas Geotab</p>
       <button class="btn btn-g btn-sm" id="rm-btn-reload-zones">↺ Recargar</button>
     </div>
     <p style="font-size:11px;color:var(--t3);margin-top:-6px">Zonas visibles en el mapa.</p>
-    <div class="fg">
-      <label class="fl">Filtrar por nombre</label>
-      <input type="text" id="rm-zone-filter" class="fi" placeholder="Buscar zona...">
-    </div>
+    <div class="fg"><label class="fl">Filtrar por nombre</label><input type="text" id="rm-zone-filter" class="fi" placeholder="Buscar zona..."></div>
     <div style="display:flex;justify-content:space-between;align-items:center">
       <span class="sec-title" id="rm-zones-count">— zonas</span>
       <div style="display:flex;gap:6px">
@@ -99,18 +69,13 @@
         <button class="btn btn-g btn-sm" id="rm-btn-zones-none">Ocultar todas</button>
       </div>
     </div>
-    <div id="rm-zones-list" class="zones-list">
-      <div class="empty"><span>📐</span>Cargando zonas...</div>
-    </div>
+    <div id="rm-zones-list" class="zones-list"><div class="empty"><span>📐</span>Cargando zonas...</div></div>
   </div>
 
-  <!-- Tab: Monitor -->
   <div class="tab-panel" id="tab-monitor">
     <p style="font-size:15px;font-weight:700">Monitoreo en Vivo</p>
     <span class="sec-title">Rutas activas</span>
-    <div id="rm-active-routes">
-      <div class="empty"><span>📡</span>Sin rutas activas.</div>
-    </div>
+    <div id="rm-active-routes"><div class="empty"><span>📡</span>Sin rutas activas.</div></div>
     <div id="rm-detail" style="display:none;flex-direction:column;gap:10px">
       <div class="divider"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -118,10 +83,7 @@
         <span id="rm-live-badge" style="font-size:9px;font-family:var(--mono);color:var(--green);background:rgba(0,214,143,.12);padding:2px 7px;border-radius:8px">● EN VIVO</span>
       </div>
       <div class="dev-bar" id="rm-dev-bar">⚠️ <span id="rm-dev-txt">DESVIADO</span></div>
-      <div class="sc">
-        <div class="dot" id="rm-track-dot"></div>
-        <div><span class="lbl" id="rm-track-lbl">Esperando...</span><span class="val" id="rm-track-val">—</span></div>
-      </div>
+      <div class="sc"><div class="dot" id="rm-track-dot"></div><div><span class="lbl" id="rm-track-lbl">Esperando...</span><span class="val" id="rm-track-val">—</span></div></div>
       <div class="pb-wrap">
         <div class="pb-h"><span>Completación</span><span id="rm-pct" style="font-family:var(--mono);font-weight:700">0%</span></div>
         <div class="pb"><div class="pb-fill" id="rm-pb" style="width:0%"></div></div>
@@ -138,38 +100,23 @@
     </div>
   </div>
 
-  <!-- Tab: Alertas -->
   <div class="tab-panel" id="tab-alerts">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <p style="font-size:15px;font-weight:700">Alertas</p>
       <button class="btn btn-g btn-sm" id="rm-btn-clear-alerts">Limpiar</button>
     </div>
-    <div id="rm-alert-list" class="al-list">
-      <div class="empty"><span>🔔</span>Sin alertas.</div>
-    </div>
+    <div id="rm-alert-list" class="al-list"><div class="empty"><span>🔔</span>Sin alertas.</div></div>
   </div>
 
-  <!-- Tab: Historial -->
   <div class="tab-panel" id="tab-reports">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <p style="font-size:15px;font-weight:700">Historial</p>
       <button class="btn btn-g btn-sm" id="rm-btn-export">↓ CSV</button>
     </div>
-    <div id="rm-reports-wrap">
-      <div class="empty"><span>📋</span>Sin rutas registradas.</div>
-    </div>
+    <div id="rm-reports-wrap"><div class="empty"><span>📋</span>Sin rutas registradas.</div></div>
   </div>
 
-  <!-- Modal parada -->
-  <div class="rm-modal" id="rm-modal">
-    <div class="modal-sh"><div id="rm-modal-body"></div></div>
-  </div>
-
-  <!-- Toast -->
+  <div class="rm-modal" id="rm-modal"><div class="modal-sh"><div id="rm-modal-body"></div></div></div>
   <div id="rm-toast"></div>
 
-</div><!-- /rm-panel -->
-
-<script src="addin.js"></script>
-</body>
-</html>
+</div>
